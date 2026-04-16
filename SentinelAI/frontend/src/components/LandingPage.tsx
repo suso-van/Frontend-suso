@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Upload, Link as LinkIcon, ArrowRight, FileVideo, FileImage, Mail, MessageSquare, Send, ShieldAlert, ShieldCheck, Activity } from 'lucide-react';
+import { Upload, Link as LinkIcon, ArrowRight, FileVideo, FileImage, Mail, MessageSquare, Send, ShieldAlert, ShieldCheck, Activity, LogIn } from 'lucide-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { useStore } from '../store/useStore';
 import { apiService } from '../services/apiService';
+import { calculateFileHash } from '../lib/crypto';
 import { cn } from '../lib/utils';
 import { GooeyText } from './ui/gooey-text-morphing';
 import { GlassEffect, GlassButton } from './ui/liquid-glass';
@@ -13,22 +15,39 @@ import { Card } from './ui/card';
 
 export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'text'>('upload');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'fingerprinting' | 'uploading'>('idle');
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { setLoading, setResult, setTextResult, setError, isLoading, loadingMessage, textResult, reset } = useStore();
+  const { publicKey } = useWallet();
+  const { setLoading, setResult, setTextResult, setError, isLoading, loadingMessage, textResult, reset, setCurrentPage, user: storeUser } = useStore();
 
   const handleFileUpload = async (file: File) => {
     try {
+      if (!publicKey) {
+        setError('Please connect your Solana wallet before uploading.');
+        return;
+      }
+
+      setUploadStatus('fingerprinting');
+      setLoading(true, 'Generating secure fingerprint...');
+      const fileHash = await calculateFileHash(file);
+      console.log('Fingerprint generated:', fileHash);
+
+      setUploadStatus('uploading');
       setLoading(true, 'Uploading file...');
-      const res = await apiService.analyzeFile(file);
+      const walletAddress = publicKey.toBase58();
+      const res = await apiService.analyzeFile(file, fileHash, walletAddress);
+
       setLoading(true, 'Running deepfake analysis...');
       await new Promise((r) => setTimeout(r, 1500));
       setResult(res);
+      setUploadStatus('idle');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
+      setUploadStatus('idle');
     }
   };
 
@@ -127,11 +146,25 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          <div className="flex flex-col items-center gap-4 relative z-20">
+          <div className="flex flex-col items-center gap-6 relative z-20">
             <p className="text-base md:text-lg text-white/45 max-w-2xl mx-auto font-light tracking-wide leading-relaxed">
               Advanced neural forensics for real-time deepfake detection and semantic news verification.
               Protecting truth in the age of synthetic media.
             </p>
+
+            {!storeUser && (
+              <motion.button 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                onClick={() => setCurrentPage('auth')}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white transition-all group active:scale-95"
+              >
+                <LogIn size={16} />
+                <span className="text-[10px] uppercase tracking-widest font-medium">Developer Portal</span>
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </motion.button>
+            )}
           </div>
         </div>
 
@@ -279,10 +312,17 @@ export default function LandingPage() {
                         )}
                       </div>
 
-                      <div className="text-center space-y-1">
+                      <div className="text-center space-y-1 z-10">
                         <p className="text-sm text-white/65 font-medium">Drop media here or click to browse</p>
                         <p className="text-[10px] uppercase tracking-widest text-white/20">Supports MP4, MOV, JPG, PNG</p>
                       </div>
+
+                      {uploadStatus !== 'idle' && (
+                        <div className="text-xs text-emerald-400 font-medium z-10 pt-2 animate-pulse flex items-center justify-center">
+                          {uploadStatus === 'fingerprinting' && "Generating secure fingerprint..."}
+                          {uploadStatus === 'uploading' && "Uploading to SentinelAI core..."}
+                        </div>
+                      )}
 
                       <div className="absolute bottom-4 flex gap-4 opacity-20">
                         <FileVideo size={16} />

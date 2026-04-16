@@ -1,5 +1,4 @@
 import { GoogleGenAI, Type } from '@google/genai';
-
 /**
  * SentinelAI API Service
  * Handles communication with FastAPI, n8n, and Gemini API.
@@ -94,7 +93,7 @@ export const apiService = {
   /**
    * Pathway A: Local Upload
    */
-  analyzeFile: async (file: File): Promise<AnalysisResult> => {
+  analyzeFile: async (file: File, fileHash: string, walletAddress?: string): Promise<AnalysisResult> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -103,6 +102,10 @@ export const apiService = {
     const response = await fetch(`${FASTAPI_URL}${endpoint}`, {
       method: 'POST',
       body: formData,
+      headers: {
+        'X-File-Hash': fileHash,
+        ...(walletAddress ? { 'X-Wallet-Address': walletAddress } : {}),
+      },
     });
 
     if (!response.ok) {
