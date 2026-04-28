@@ -1,14 +1,9 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { buildApiUrl } from '../lib/api-base';
 /**
  * SentinelAI API Service
  * Handles communication with FastAPI, n8n, and Gemini API.
  */
 
-const FASTAPI_URL =
-  import.meta.env.VITE_FASTAPI_URL ||
-  import.meta.env.VITE_API_URL ||
-  '/api';
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || '';
 
 export interface AnalysisResult {
   verdict: 'Real' | 'Fake';
@@ -151,9 +146,9 @@ export const apiService = {
       formData.append('blockchain_tx', blockchainTx);
     }
 
-    const endpoint = '/analyse/analyse_upload';
+    const endpoint = buildApiUrl('/analyse/analyse_upload');
 
-    const response = await fetch(`${FASTAPI_URL}${endpoint}`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: formData,
       headers: {
@@ -164,7 +159,8 @@ export const apiService = {
     });
 
     if (!response.ok) {
-      throw new Error(`Analysis failed: ${response.statusText}`);
+      const detail = await response.text().catch(() => '');
+      throw new Error(detail || response.statusText);
     }
 
     const raw = await response.json();
@@ -185,22 +181,22 @@ export const apiService = {
     }
 
     // Prefer n8n when configured, but fall back to FastAPI.
-    if (N8N_WEBHOOK_URL) {
-      const response = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+    // if (N8N_WEBHOOK_URL) {
+    //   const response = await fetch(N8N_WEBHOOK_URL, {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({ url }),
+    //   });
 
-      if (response.ok) {
-        const raw = await response.json();
-        return normalizeAnalysisResult(raw);
-      }
-    }
+    //   if (response.ok) {
+    //     const raw = await response.json();
+    //     return normalizeAnalysisResult(raw);
+    //   }
+    // }
 
-    const response = await fetch(`${FASTAPI_URL}/analyse/url`, {
+    const response = await fetch(buildApiUrl('/analyse/url'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -226,7 +222,7 @@ export const apiService = {
    * Uses FastAPI `/verify_news` (alias: `/analyze_news`)
    */
   analyzeText: async (text: string): Promise<AnalysisResult> => {
-    const response = await fetch(`${FASTAPI_URL}/verify_news`, {
+    const response = await fetch(buildApiUrl('/verify_news'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ headline: text }),
@@ -262,7 +258,7 @@ export const apiService = {
     }
 
     const query = mediaType ? `?media_type=${encodeURIComponent(mediaType)}` : '';
-    const response = await fetch(`${FASTAPI_URL}/history/${query}`, {
+    const response = await fetch(buildApiUrl(`/history${query}`), {
       headers: {
         ...authHeaders,
       },
@@ -277,7 +273,7 @@ export const apiService = {
   },
 
   verifyPayment: async (signature: string, amount: number): Promise<PaymentVerificationResult> => {
-    const response = await fetch(`${FASTAPI_URL}/verify-payment`, {
+    const response = await fetch(buildApiUrl('/verify-payment'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

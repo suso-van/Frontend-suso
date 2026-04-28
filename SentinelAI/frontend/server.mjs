@@ -5,22 +5,25 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 
 const PORT = Number(process.env.PORT || 3000);
-const BACKEND_URL = process.env.VITE_BACKEND_PROXY_TARGET || "http://127.0.0.1:8000";
+const BACKEND_URL = (process.env.VITE_BACKEND_PROXY_TARGET || "http://127.0.0.1:8000").replace(/\/+$/, '');
 
 async function startServer() {
   const app = express();
 
   app.use("/api", async (req, res) => {
     try {
-      const path = req.originalUrl.replace(/^\/api/, "");
-      const targetUrl = new URL(path.startsWith('/') ? path : '/' + path, BACKEND_URL);
+      let subPath = req.originalUrl.replace(/^\/api/, "");
+      if (!subPath.startsWith('/')) subPath = '/' + subPath;
+      
+      const targetUrl = new URL(subPath, BACKEND_URL);
       
       console.log(`[Proxy] ${req.method} ${req.originalUrl} -> ${targetUrl.href}`);
 
       const headers = new Headers();
 
       for (const [key, value] of Object.entries(req.headers)) {
-        if (!value || key.toLowerCase() === "host" || key.toLowerCase() === "content-length") {
+        const lowerKey = key.toLowerCase();
+        if (!value || lowerKey === "host" || lowerKey === "content-length" || lowerKey === "connection" || lowerKey === "accept-encoding") {
           continue;
         }
 
@@ -32,6 +35,10 @@ async function startServer() {
           headers.set(key, value);
         }
       }
+
+      headers.set("ngrok-skip-browser-warning", "true");
+      headers.set("Accept", "application/json");
+      headers.set("Host", targetUrl.host);
 
       const requestInit = {
         method: req.method,
@@ -45,25 +52,26 @@ async function startServer() {
 
       const upstream = await fetch(targetUrl, requestInit);
 
+      console.log(`[Proxy] Status: ${upstream.status} ${upstream.statusText}`);
+      console.log(`[Proxy] Content-Type: ${upstream.headers.get("content-type")}`);
+
       res.status(upstream.status);
       upstream.headers.forEach((value, key) => {
-        if (key.toLowerCase() !== "content-encoding") {
+        const lowerKey = key.toLowerCase();
+        if (lowerKey !== "content-encoding" && lowerKey !== "transfer-encoding" && lowerKey !== "content-length") {
           res.setHeader(key, value);
         }
       });
 
-      if (!upstream.body) {
-        res.end();
-        return;
+      const body = await upstream.arrayBuffer();
+      
+      // If we got a 404, log the body to see what it says
+      if (upstream.status === 404) {
+        console.log(`[Proxy] 404 Body: ${Buffer.from(body).toString().slice(0, 200)}`);
       }
 
-      const reader = upstream.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
-      }
-      res.end();
+      res.send(Buffer.from(body));
+      
     } catch (error) {
       console.error("API proxy error:", error);
       res.status(502).json({
@@ -89,8 +97,10 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`SentinelAI frontend server running on http://localhost:${PORT}`);
-    console.log(`Proxying /api requests to ${BACKEND_URL}`);
+    console.log(`\n--- SentinelAI Server Debug ---`);
+    console.log(`Port: ${PORT}`);
+    console.log(`Backend Target: ${BACKEND_URL}`);
+    console.log(`--------------------------------\n`);
   });
 }
 

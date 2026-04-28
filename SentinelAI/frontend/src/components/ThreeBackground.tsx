@@ -71,8 +71,15 @@ function Grid() {
 
 export default function ThreeBackground() {
   const [lowPowerMode, setLowPowerMode] = useState(false);
+  const [isWebGLSupported, setIsWebGLSupported] = useState(true);
 
   useEffect(() => {
+    const canvas = document.createElement('canvas');
+    const gl =
+      canvas.getContext('webgl2') ||
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl');
+    setIsWebGLSupported(Boolean(gl));
     const nav = navigator as Navigator & { deviceMemory?: number };
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lowCpu = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4;
@@ -80,6 +87,10 @@ export default function ThreeBackground() {
     const smallViewport = window.innerWidth < 1024;
     setLowPowerMode(prefersReducedMotion || lowCpu || lowMemory || smallViewport);
   }, []);
+
+  if (!isWebGLSupported) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 -z-10 bg-black">

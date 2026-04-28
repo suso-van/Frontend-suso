@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { buildApiUrl } from '../lib/api-base';
 import { GlassEffect, GlassButton } from './ui/liquid-glass';
 
 export default function AuthPage() {
@@ -19,25 +20,42 @@ export default function AuthPage() {
     setIsLoading(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '/api';
       if (mode === 'register') {
-        const registerRes = await fetch(`${baseUrl}/auth/register`, {
+        const registerRes = await fetch(buildApiUrl('/auth/register'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
         });
-        const registerData = await registerRes.json();
+        const regContentType = registerRes.headers.get('content-type');
+        let registerData: any;
+        
+        if (regContentType && regContentType.includes('application/json')) {
+          registerData = await registerRes.json();
+        } else {
+          const text = await registerRes.text();
+          throw new Error(text || `Registration failed with status ${registerRes.status}`);
+        }
+
         if (!registerRes.ok) {
           throw new Error(registerData.detail || 'Registration failed');
         }
       }
 
-      const loginRes = await fetch(`${baseUrl}/auth/login`, {
+      const loginRes = await fetch(buildApiUrl('/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const loginData = await loginRes.json();
+      const contentType = loginRes.headers.get('content-type');
+      let loginData: any;
+      
+      if (contentType && contentType.includes('application/json')) {
+        loginData = await loginRes.json();
+      } else {
+        const text = await loginRes.text();
+        throw new Error(text || `Server returned ${loginRes.status} ${loginRes.statusText}`);
+      }
+
       if (!loginRes.ok) {
         throw new Error(loginData.detail || 'Authentication failed');
       }
@@ -129,11 +147,10 @@ export default function AuthPage() {
               </div>
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Min. 8 characters"
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
                 className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-4 pl-11 pr-11 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.05] transition-all"
               />
               <button
@@ -159,26 +176,24 @@ export default function AuthPage() {
               )}
             </AnimatePresence>
 
-            <GlassButton
-              onClick={() => handleSubmit({ preventDefault: () => {} } as any)}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 py-4 mt-2"
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-medium text-sm uppercase tracking-wider transition-all duration-300 hover:shadow-[0_0_24px_rgba(52,211,153,0.3)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
-              <div className="flex items-center justify-center gap-2 text-black font-medium">
-                {isLoading ? (
-                  <motion.div
-                    className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                  />
-                ) : (
-                  <>
-                    {mode === 'login' ? 'Sign In' : 'Create Account'}
-                    <ArrowRight size={16} />
-                  </>
-                )}
-              </div>
-            </GlassButton>
+              {isLoading ? (
+                <motion.div
+                  className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                />
+              ) : (
+                <>
+                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
           </form>
         </GlassEffect>
 
