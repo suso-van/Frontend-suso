@@ -13,7 +13,7 @@ interface AppState {
   result: AnalysisResult | null;
   textResult: AnalysisResult | null;
   error: string | null;
-  currentPage: 'home' | 'text' | 'auth' | 'api-dashboard';
+  currentPage: 'home' | 'text' | 'auth' | 'api-dashboard' | 'history' | 'dashboard';
   user: User | null;
   token: string | null;
   apiKey: string | null;
@@ -24,7 +24,7 @@ interface AppState {
   setResult: (result: AnalysisResult | null) => void;
   setTextResult: (result: AnalysisResult | null) => void;
   setError: (error: string | null) => void;
-  setCurrentPage: (page: 'home' | 'text' | 'auth' | 'api-dashboard') => void;
+  setCurrentPage: (page: 'home' | 'text' | 'auth' | 'api-dashboard' | 'history' | 'dashboard') => void;
   setUser: (user: User | null, token: string | null, apiKey?: string | null) => void;
   logout: () => void;
   reset: () => void;

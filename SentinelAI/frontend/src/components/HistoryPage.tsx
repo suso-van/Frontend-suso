@@ -6,9 +6,33 @@ import { apiService, AnalysisResult } from '../services/apiService';
 import { GlassEffect, GlassButton } from './ui/liquid-glass';
 import { cn } from '../lib/utils';
 
+interface HistoryItem {
+  verdict: string;
+  confidence: number;
+  sourceUrl: string;
+  timestamp: string;
+  raw?: unknown;
+}
+
+function normalizeHistoryItem(raw: any): HistoryItem {
+  const verdict = raw?.verdict || raw?.result || raw?.visual_analysis?.verdict || '';
+  const confidence = raw?.confidence || raw?.visual_analysis?.confidence || 0;
+  const sourceUrl = raw?.source_url || raw?.sourceUrl || raw?.original_url || raw?.url || raw?.input_data || raw?.filename || '';
+  const timestamp = raw?.timestamp || raw?.created_at || raw?.date || raw?.analysed_at || '';
+  
+  return {
+    verdict: typeof verdict === 'string' && verdict.toLowerCase().includes('fake') ? 'Fake' : 'Real',
+    confidence: typeof confidence === 'number' ? confidence : Number(confidence || 0),
+    sourceUrl,
+    timestamp,
+    raw,
+  };
+}
+
 export default function HistoryPage() {
-  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'Real' | 'Fake'>('all');
   const { token, setResult, setCurrentPage } = useStore();
@@ -17,12 +41,26 @@ export default function HistoryPage() {
     const fetchHistory = async () => {
       try {
         setIsLoading(true);
+        setFetchError(null);
+
         const data = await apiService.getHistory();
-        // Assuming the backend returns an array of AnalysisResult objects or similar
-        const normalized = Array.isArray(data) ? data : data.history || [];
+        console.log('[History] Raw backend response:', data);
+
+        let items: any[] = [];
+        if (data && Array.isArray(data.history)) {
+          items = data.history;
+        } else if (Array.isArray(data)) {
+          items = data;
+        } else {
+          console.error('[History] Invalid backend schema:', data);
+          throw new Error('Invalid response format from backend. Expected { history: [...] } or an Array.');
+        }
+
+        const normalized = items.map(normalizeHistoryItem);
         setHistory(normalized);
       } catch (err) {
         console.error('Failed to fetch history:', err);
+        setFetchError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
@@ -30,6 +68,8 @@ export default function HistoryPage() {
 
     if (token) {
       fetchHistory();
+    } else {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -42,9 +82,9 @@ export default function HistoryPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleViewResult = (result: AnalysisResult) => {
-    setResult(result);
-    setCurrentPage('dashboard');
+  const handleViewResult = (result: HistoryItem) => {
+    setResult(result as any);
+    setCurrentPage('home');
   };
 
   return (
@@ -101,6 +141,21 @@ export default function HistoryPage() {
               />
               <p className="text-[10px] uppercase tracking-widest text-white/20">Accessing archives...</p>
             </div>
+          ) : fetchError ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="py-20 text-center space-y-4"
+            >
+              <p className="text-rose-400/60 text-sm">Failed to load history</p>
+              <p className="text-white/20 text-xs font-mono">{fetchError}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-6 py-2 text-[10px] uppercase tracking-widest text-white/40 border border-white/10 rounded-xl hover:border-emerald-500/30 transition-colors"
+              >
+                Retry
+              </button>
+            </motion.div>
           ) : filteredHistory.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0 }}

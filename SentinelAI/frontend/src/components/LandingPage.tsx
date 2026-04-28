@@ -366,41 +366,26 @@ export default function LandingPage() {
                       </p>
                     </motion.form>
                   ) : (
-                    <motion.form
+                    <motion.div
                       key="text"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      onSubmit={handleTextSubmit}
-                      className="space-y-6"
+                      className="flex flex-col items-center justify-center py-12 space-y-5"
                     >
-                      <div className="relative group">
-                        <textarea
-                          placeholder="Paste a headline or news snippet here..."
-                          value={text}
-                          onChange={(e) => setText(e.target.value)}
-                          className="w-full h-32 bg-white/[0.03] border border-white/10 rounded-2xl p-5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.05] transition-all resize-none"
-                        />
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <Send size={28} className="text-emerald-500" />
                       </div>
-
-                      <GlassButton
-                        onClick={() => handleTextSubmit()}
-                        className={cn(
-                          'w-full bg-emerald-500 hover:bg-emerald-400 py-3.5',
-                          (!text.trim() || isLoading) && 'opacity-50 pointer-events-none'
-                        )}
-                        style={{ boxShadow: 'none' }}
-                      >
-                        <div className="flex items-center justify-center gap-2 text-black font-medium">
-                          Run Semantic Check
-                          <Send size={18} />
-                        </div>
-                      </GlassButton>
-
-                      <p className="text-[10px] text-center uppercase tracking-widest text-white/20">
-                        Verified via Sentinel backend
-                      </p>
-                    </motion.form>
+                      <div className="text-center space-y-2">
+                        <h3 className="text-white font-medium text-lg">Coming Soon</h3>
+                        <p className="text-sm text-white/30 max-w-xs">
+                          Fake news detection powered by advanced AI semantic analysis is currently under development.
+                        </p>
+                      </div>
+                      <span className="text-[9px] uppercase tracking-[0.3em] text-emerald-500/60 px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
+                        In Development
+                      </span>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>

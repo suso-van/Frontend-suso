@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
+import { buildApiUrl } from '../lib/api-base';
 
 type BackendStatus = 'online' | 'offline';
-
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_FASTAPI_URL ||
-  '/api';
 
 export default function StatusBadge() {
   const [status, setStatus] = useState<BackendStatus>('offline');
@@ -14,7 +10,7 @@ export default function StatusBadge() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/`);
+        const response = await fetch(buildApiUrl('/'));
         if (response.ok) {
           setStatus('online');
           setLastSuccessfulCheck(new Date().toLocaleTimeString());
